@@ -2,6 +2,10 @@ import argparse
 import logging
 import requests
 import csv
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import time
 
 
 class Movie(object):
@@ -29,7 +33,7 @@ class Movie(object):
         return hash(self.movie_id)
 
     def to_csv(self):
-        return [[self.movie_id], self.genres, [self.title], [self.synopsis], [self.mpaa_rating], [self.runtime], [self.critics_consensus], self.abridged_cast_names, self.abridged_directors_names, [self.studio]]
+        return [[self.movie_id], self.genres, [self.title], self.synopsis, [self.mpaa_rating], [self.runtime], self.critics_consensus, self.abridged_cast_names, self.abridged_directors_names, [self.studio]]
 
 
 class ApiClient(object):
@@ -59,6 +63,18 @@ class ApiClient(object):
         else:
             return response
 
+    def normalize(self, text):
+        tokenizer = nltk.WordPunctTokenizer()
+        wnl = WordNetLemmatizer()
+        tokens = set()
+        for token in tokenizer.tokenize(text.lower()):
+            token = wnl.lemmatize(token)
+            if token in stopwords.words('english'):
+                continue
+            tokens.add(token)
+
+        return list(tokens)
+
     def get_extra_params(self, movie_id, movie):
         m = self._load_movie(movie_id)
         if (m.has_key('genres') and m.has_key('mpaa_rating') and m.has_key('runtime') and m.has_key('critics_consensus') and
@@ -66,7 +82,7 @@ class ApiClient(object):
             movie.genres = m.get("genres")
             movie.mpaa_rating = m.get("mpaa_rating")
             movie.runtime = m.get("runtime")
-            movie.critics_consensus = m.get("critics_consensus")
+            movie.critics_consensus = self.normalize(m.get("critics_consensus"))
             movie.abridged_cast_names = [ac['name'] for ac in m.get("abridged_cast") ]
             movie.abridged_directors_names = [ad['name'] for ad in m.get("abridged_directors") ]
             movie.studio = m.get("studio")                        
@@ -84,11 +100,11 @@ class ApiClient(object):
                     title = result.get("title")
                     if movie_id and title and result.get("synopsis","") and result['synopsis'] != 'n/a':
                         movie = Movie(movie_id, title)
-                        movie.synopsis = result.get("synopsis", "")
+                        movie.synopsis = self.normalize(result.get("synopsis"))
                
                         # Load extra movie information                        
                         if self.get_extra_params(movie_id, movie):
-                            yield movie                
+                            yield movie                                        
 
 
 def main():
@@ -106,8 +122,8 @@ def main():
     writer = csv.writer(csvfile, delimiter=' ',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
+    client = ApiClient(args.key)
     for keyword in args.keywords:
-        client = ApiClient(args.key)
         for movie in client.search_movies(keyword):
             writer.writerows(movie.to_csv())
 

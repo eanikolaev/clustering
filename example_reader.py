@@ -10,7 +10,7 @@ with open('data.csv', 'rb') as csvfile:
     n = len(data)/l
     movies = []
     for i in xrange(n):
-        ([movie_id], genres, [title], [synopsis], [mpaa_rating], [runtime], [critics_consensus], abridged_cast_names, abridged_directors_names, [studio]) = data[cur:cur+l]
+        ([movie_id], genres, [title], synopsis, [mpaa_rating], [runtime], critics_consensus, abridged_cast_names, abridged_directors_names, [studio]) = data[cur:cur+l]
         movie = {
             'id':                       movie_id,
             'genres':                   genres,
@@ -26,3 +26,5 @@ with open('data.csv', 'rb') as csvfile:
         movies.append(movie)
         print movie
         cur += l
+
+    print '\n\ncount: '+str(len(movies))
