@@ -1,8 +1,7 @@
 import argparse
 import logging
 import requests
-
-__author__ = 'nikolayanokhin'
+import csv
 
 
 class Movie(object):
@@ -11,22 +10,26 @@ class Movie(object):
         assert isinstance(title, unicode), "Name {0} is of type {1}".format(title, type(title))
         self.movie_id = movie_id
         self.title = title
-        self.actors = set()
         self.synopsis = ""
+        self.mpaa_rating = ""
+        self.runtime = -1
         self.genres = []
-
-    def add_actor(self, actor):
-        assert isinstance(actor, unicode), "Tag {0} is of type {1}".format(actor, type(actor))
-        self.actors.add(actor)
+        self.critics_consensus = ""
+        self.abridged_cast_names = []
+        self.abridged_directors_names = []
+        self.studio = ""
 
     def __repr__(self):
-        return "Movie('{0}', '{1}', actors={2}, genres={3})".format(self.movie_id, self.title.encode('ascii', 'ignore'), self.actors, self.genres)
+        return "Movie('{0}', 'title={1}', genres={2}, mpaa_rating={3}, runtime={4}, critics_consensus={5}, abridged_cast_names={6}, abridged_directors_names={7}, studio={8})".format(self.movie_id, self.title.encode('ascii', 'ignore'), self.genres, self.mpaa_rating, self.runtime, self.critics_consensus, self.abridged_cast_names, self.abridged_directors_names, self.studio)
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.movie_id == other.movie_id and self.title == other.title
 
     def __hash__(self):
         return hash(self.movie_id)
+
+    def to_csv(self):
+        return [[self.movie_id], self.genres, [self.title], [self.synopsis], [self.mpaa_rating], [self.runtime], [self.critics_consensus], self.abridged_cast_names, self.abridged_directors_names, [self.studio]]
 
 
 class ApiClient(object):
@@ -56,6 +59,19 @@ class ApiClient(object):
         else:
             return response
 
+    def get_extra_params(self, movie_id, movie):
+        m = self._load_movie(movie_id)
+        if (m.has_key('genres') and m.has_key('mpaa_rating') and m.has_key('runtime') and m.has_key('critics_consensus') and
+               m.has_key('abridged_cast') and m.has_key('abridged_directors') and m.has_key('studio')):            
+            movie.genres = m.get("genres")
+            movie.mpaa_rating = m.get("mpaa_rating")
+            movie.runtime = m.get("runtime")
+            movie.critics_consensus = m.get("critics_consensus")
+            movie.abridged_cast_names = [ac['name'] for ac in m.get("abridged_cast") ]
+            movie.abridged_directors_names = [ad['name'] for ad in m.get("abridged_directors") ]
+            movie.studio = m.get("studio")                        
+            return True
+        return False
 
     def search_movies(self, keyword, page_limit=50):
         logging.debug("Searching movies by keyword '%s'", keyword)
@@ -66,20 +82,13 @@ class ApiClient(object):
                 for result in movies:
                     movie_id = result.get("id")
                     title = result.get("title")
-                    if movie_id and title:
+                    if movie_id and title and result.get("synopsis","") and result['synopsis'] != 'n/a':
                         movie = Movie(movie_id, title)
                         movie.synopsis = result.get("synopsis", "")
-                        # Actors
-                        cast = result.get("abridged_cast", [])
-                        for actor in cast:
-                            actor_name = actor.get("name")
-                            if actor_name:
-                                movie.add_actor(actor_name)
-
-                        # Load extra movie information
-                        m = self._load_movie(movie_id)
-                        movie.genres = m.get("genres")
-                        yield movie
+               
+                        # Load extra movie information                        
+                        if self.get_extra_params(movie_id, movie):
+                            yield movie                
 
 
 def main():
@@ -93,11 +102,14 @@ def main():
     parser.add_argument("keywords", nargs='+', help="The keywords used to search movies")
     args = parser.parse_args()
 
+    csvfile = open('data.csv', 'wb')
+    writer = csv.writer(csvfile, delimiter=' ',
+                            quotechar='|', quoting=csv.QUOTE_MINIMAL)
+
     for keyword in args.keywords:
-        logging.debug("Searching movies for keyword '%s'", keyword)
         client = ApiClient(args.key)
         for movie in client.search_movies(keyword):
-            print movie
+            writer.writerows(movie.to_csv())
 
 
 if __name__ == "__main__":
