@@ -89,14 +89,20 @@ class ApiClient(object):
             return True
         return False
 
-    def search_movies(self, keyword, page_limit=50):
+    def search_movies(self, keyword, movie_ids, page_limit=50):
         logging.debug("Searching movies by keyword '%s'", keyword)
         response = self._load(q=keyword, page_limit=page_limit)
-        if response:
+        n = response.get("total")        
+        for i in xrange(n/page_limit):
+          response = self._load(q=keyword, page_limit=page_limit, page=i)
+          if response:
             movies = response.get("movies")
             if movies:
                 for result in movies:
                     movie_id = result.get("id")
+                    if not movie_id or movie_id in movie_ids:
+                        continue
+
                     title = result.get("title")
                     if movie_id and title and result.get("synopsis","") and result['synopsis'] != 'n/a':
                         movie = Movie(movie_id, title)
@@ -123,9 +129,12 @@ def main():
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
     client = ApiClient(args.key)
+    movie_ids = set()
     for keyword in args.keywords:
-        for movie in client.search_movies(keyword):
-            writer.writerows(movie.to_csv())
+        for movie in client.search_movies(keyword, movie_ids):
+            if not (movie.movie_id in movie_ids):
+                movie_ids.add(movie.movie_id)
+                writer.writerows(movie.to_csv())
 
 
 if __name__ == "__main__":
