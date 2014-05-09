@@ -63,6 +63,7 @@ class ApiClient(object):
         else:
             return response
 
+
     def normalize(self, text):
         tokenizer = nltk.WordPunctTokenizer()
         wnl = WordNetLemmatizer()
@@ -75,10 +76,22 @@ class ApiClient(object):
 
         return list(tokens)
 
+
+    def check_params(self, plist, m):
+        for p in plist:
+           if not m.has_key(p) or not m[p]:
+               return False
+       
+        if m['mpaa_rating'] == 'Unrated':
+            return False
+ 
+        return True
+
+
     def get_extra_params(self, movie_id, movie):
         m = self._load_movie(movie_id)
-        if (m.has_key('genres') and m.has_key('mpaa_rating') and m.has_key('runtime') and m.has_key('critics_consensus') and
-               m.has_key('abridged_cast') and m.has_key('abridged_directors') and m.has_key('studio')):            
+        if self.check_params(['genres', 'mpaa_rating', 'runtime', 'critics_consensus', 
+                              'abridged_cast', 'abridged_directors', 'studio' ], m):            
             movie.genres = m.get("genres")
             movie.mpaa_rating = m.get("mpaa_rating")
             movie.runtime = m.get("runtime")
@@ -87,13 +100,15 @@ class ApiClient(object):
             movie.abridged_directors_names = [ad['name'] for ad in m.get("abridged_directors") ]
             movie.studio = m.get("studio")                        
             return True
+
         return False
+
 
     def search_movies(self, keyword, movie_ids, page_limit=50):
         logging.debug("Searching movies by keyword '%s'", keyword)
         response = self._load(q=keyword, page_limit=page_limit)
         n = response.get("total")        
-        for i in xrange(n/page_limit):
+        for i in xrange(n/page_limit + 1):
           response = self._load(q=keyword, page_limit=page_limit, page=i)
           if response:
             movies = response.get("movies")
@@ -110,7 +125,7 @@ class ApiClient(object):
                
                         # Load extra movie information                        
                         if self.get_extra_params(movie_id, movie):
-                            yield movie                                        
+                            yield movie
 
 
 def main():
