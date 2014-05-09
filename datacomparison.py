@@ -10,9 +10,9 @@ from collections import Counter as ctr
 
 def compare_singles(e1, e2):
     if e1 == e2:
-        return 1
-    else:
         return 0
+    else:
+        return 1
 
 
 def compare_arrays(a1, a2, coeff=1):
@@ -22,13 +22,13 @@ def compare_arrays(a1, a2, coeff=1):
     ABCDE : ABC -> (5-5)/3 = 0
     ABCDE : AFG -> (7-5)/3 = 0.29
     ABCDE : AFG coeff=100000 -> (7-5)/3 = 0.665
-    """
-    l1 = len(set(a1))
-    l2 = len(set(a2))
-    if l1 == 0 or l2 == 0:
-        #incorrect data
-        return -1
-    l_union = len(set(list(set(a1)) + list(set(a2))))
+    """   
+    sa1 = set(a1)
+    sa2 = set(a2)
+    l1 = len(sa1)
+    l2 = len(sa2)
+    sa1.update(sa2)
+    l_union = len(sa1)
     l_l = len(a1 + a2)
     intersects = l_l - l_union
     m = min(l1, l2)
